@@ -177,8 +177,24 @@ export const CategoryChart = ({
     return map;
   }, [monthlyTransactions, selectedType, groupLevel, currentSector]);
 
-  const labels = Object.keys(aggregatedData);
-  const values = Object.values(aggregatedData).map((item) => item.amount);
+  // 変更後：キロ番号順の降順（大きい順）に並べ替える処理
+  const sortedEntries = useMemo(() => {
+    return Object.entries(aggregatedData).sort((a, b) => {
+      // a[1] や b[1] にはオブジェクト（item）が入っています
+      const itemA = a[1];
+      const itemB = b[1];
+
+      const numA = parseInt(String(itemA.kiloNumber || itemA.ticketNumber || "").replace(/\D/g, ""), 10) || 0;
+      const numB = parseInt(String(itemB.kiloNumber || itemB.ticketNumber || "").replace(/\D/g, ""), 10) || 0;
+      
+      // 降順（大きい順）
+      return numB - numA;
+    });
+  }, [aggregatedData]);
+
+  // ソート済みの結果からラベルと値を生成する
+  const labels = sortedEntries.map(([label]) => label);
+  const values = sortedEntries.map(([, item]) => item.amount);
 
   // カラー判定ロジック
   const { bgColors, borderColors } = useMemo(() => {

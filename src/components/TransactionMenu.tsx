@@ -60,8 +60,8 @@ export const TransactionMenu = ({
         {[...dailyTransactions]
           .sort((a: any, b: any) => {
             // 例: キロ名（kilo または kiloNumber）の数値で降順に並べ替える場合
-            const kiloA = parseInt(String(a.kiloNumber || "").replace(/\D/g, "")) || 0;
-            const kiloB = parseInt(String(b.kiloNumber || "").replace(/\D/g, "")) || 0;
+            const kiloA = parseInt(String(a.kiloNumber || a.ticketNumber || "").replace(/\D/g, ""), 10) || 0;
+            const kiloB = parseInt(String(b.kiloNumber || b.ticketNumber || "").replace(/\D/g, ""), 10) || 0;
             return kiloB - kiloA;
           })
           .map((transaction) => {
