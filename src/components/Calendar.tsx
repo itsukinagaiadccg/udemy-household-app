@@ -1,25 +1,50 @@
-// @ts-ignore
-import { DatesSetArg, EventContentArg } from "@fullcalendar/core";
-import FullCalendar from "@fullcalendar/react";
 import React, { useState } from "react";
-import dayGridPlugin from "@fullcalendar/daygrid";
-// @ts-ignore
-import jaLocale from "@fullcalendar/core/locales/ja";
-import "../calendar.css";
+import {
+  Box,
+  Typography,
+  Paper,
+  Grid,
+  IconButton,
+  TextField,
+  InputAdornment,
+  Button,
+  ButtonBase,
+  ButtonGroup,
+} from "@mui/material";
+import ArrowBackIosNewIcon from "@mui/icons-material/ArrowBackIosNew";
+import ArrowForwardIosIcon from "@mui/icons-material/ArrowForwardIos";
+import SearchIcon from "@mui/icons-material/Search";
+import {
+  addDays,
+  format,
+  getDay,
+  parseISO,
+  isValid,
+  startOfMonth,
+  endOfMonth,
+  startOfWeek,
+  endOfWeek,
+  eachDayOfInterval,
+  isSameMonth,
+  addMonths,
+  subMonths,
+} from "date-fns";
+import { DateClickArg } from "@fullcalendar/interaction";
 import { Transaction, User } from "../types";
 import { calculateDailyBalances } from "../utils/financeCalculations.ts";
 import { formatCurrency } from "../utils/formatting.ts";
-import interactionPlugin, { DateClickArg } from "@fullcalendar/interaction";
-import { useParams } from "react-router-dom";
 import { SECTOR_THEMES } from "./sectorThemes.ts";
 import {
   getFullCalendarFirstDay,
   getCalendarContainerSx,
+  getWeekdaysBySector,
+  getStartDayIndex,
+  getWeekdayColor,
+  getDateNumberColor,
+  getCalendarDayPaperSx,
 } from "../style/calendarTheme.ts";
-import { Button, ButtonGroup, Box, Typography } from "@mui/material";
-import { isSameMonth, format } from "date-fns";
-import { convertToCubeDateDetails } from "./CubeCalendarView.tsx";
-import CubeCalendarView from "./CubeCalendarView.tsx";
+import { useParams } from "react-router-dom";
+import CubeCalendarView, { convertToCubeDateDetails } from "./CubeCalendarView.tsx";
 
 type CalendarMode = "gregorian" | "cube";
 
@@ -29,7 +54,7 @@ interface CalendarProps {
   currentDay?: string;
   setCurrentMonth?: React.Dispatch<React.SetStateAction<Date>>;
   today?: string;
-  onDateClick?: (dateInfo: DateClickArg) => void;
+  onDateClick?: (dateInfo: any) => void;
 }
 
 const Calendar = ({
@@ -54,6 +79,11 @@ const Calendar = ({
 
   const currentTheme = SECTOR_THEMES[currentSector as User] || SECTOR_THEMES.sectorL;
   const [calendarMode, setCalendarMode] = useState<CalendarMode>("gregorian");
+  
+  const [gregorianAnchorDate, setGregorianAnchorDate] = useState<Date>(() => {
+    return currentDay ? parseISO(currentDay) : new Date();
+  });
+  const [searchQuery, setSearchQuery] = useState<string>("");
 
   const filteredTransactions = React.useMemo(() => {
     if (!monthlyTransactions) return [];
@@ -66,76 +96,57 @@ const Calendar = ({
   }, [monthlyTransactions, currentSector]);
 
   const dailyBalances = calculateDailyBalances(filteredTransactions);
+  const currentWeekdays = getWeekdaysBySector(currentSector);
 
-  const calendarEvents = Object.keys(dailyBalances).map((date) => {
-    const { income, expense, balance } = dailyBalances[date];
-    return {
-      date: date,
-      income: formatCurrency(income),
-      expense: formatCurrency(expense),
-      balance: formatCurrency(balance),
-    };
-  });
+  const monthStart = startOfMonth(gregorianAnchorDate);
+  const monthEnd = endOfMonth(gregorianAnchorDate);
+  const firstDayOfWeekIndex = getFullCalendarFirstDay(currentSector);
+  
+  const calendarStart = startOfWeek(monthStart, { weekStartsOn: firstDayOfWeekIndex as any });
+  const calendarEnd = endOfWeek(monthEnd, { weekStartsOn: firstDayOfWeekIndex as any });
+  const gregorianDays = eachDayOfInterval({ start: calendarStart, end: calendarEnd });
 
-  const renderEventContent = (eventInfo: EventContentArg) => (
-    <Box sx={{ p: 0.2, width: "100%", overflow: "hidden", pointerEvents: "none" }}>
-      <div className="money" id="event-income">{eventInfo.event.extendedProps.income}</div>
-      <div className="money" id="event-expense">{eventInfo.event.extendedProps.expense}</div>
-      <div className="money" id="event-balance">{eventInfo.event.extendedProps.balance}</div>
-    </Box>
-  );
+  const handlePrevGregorian = () => {
+    const prev = subMonths(gregorianAnchorDate, 1);
+    setGregorianAnchorDate(prev);
+    if (setCurrentMonth) setCurrentMonth(prev);
+  };
 
-  const handleDateSet = (datesetInfo: DatesSetArg) => {
-    const currentStart = datesetInfo.view.currentStart;
-    if (setCurrentMonth) setCurrentMonth(currentStart);
-    if (isSameMonth(new Date(), currentStart) && setCurrentDay && today) {
-      setCurrentDay(today);
+  const handleNextGregorian = () => {
+    const next = addMonths(gregorianAnchorDate, 1);
+    setGregorianAnchorDate(next);
+    if (setCurrentMonth) setCurrentMonth(next);
+  };
+
+  const handleTodayGregorian = () => {
+    const now = new Date();
+    setGregorianAnchorDate(now);
+    if (setCurrentMonth) setCurrentMonth(now);
+    if (setCurrentDay && today) setCurrentDay(today);
+  };
+
+  const handleSearchDate = () => {
+    if (!searchQuery.trim()) return;
+    let targetDate: Date | null = null;
+    const rawInput = searchQuery.trim().replace(/\//g, "-");
+
+    if (/^\d{4}-\d{1,2}-\d{1,2}$/.test(rawInput)) {
+      const parsed = parseISO(rawInput);
+      if (isValid(parsed)) targetDate = parsed;
+    }
+
+    if (targetDate) {
+      setGregorianAnchorDate(targetDate);
+      if (setCurrentMonth) setCurrentMonth(targetDate);
+      if (setCurrentDay) setCurrentDay(format(targetDate, "yyyy-MM-dd"));
+      setSearchQuery("");
+    } else {
+      alert("有効な日付を入力してください（例: 2026-07-25）");
     }
   };
 
   return (
-    <Box
-      sx={{
-        ...getCalendarContainerSx(currentTheme),
-
-        // 1. 選択されたセルの背景色と枠の色を完全強制する
-        "& .fc-daygrid-day.selected-day": {
-          backgroundColor: `${currentTheme.selectedCardBgColor} !important`,
-          borderColor: `${currentTheme.titleColor} !important`,
-          borderWidth: "2px !important",
-          borderStyle: "solid !important",
-          outline: "none !important",
-          zIndex: 5,
-        },
-        // セルの中にあるすべての内部フレーム・背景レイヤーの背景色を強制的に一致させる
-        "& .fc-daygrid-day.selected-day .fc-daygrid-day-frame, & .fc-daygrid-day.selected-day .fc-daygrid-day-bg, & .fc-daygrid-day.selected-day .fc-daygrid-day-content": {
-          backgroundColor: `${currentTheme.selectedCardBgColor} !important`,
-        },
-        
-        // ホバー時にも色が消えないように固定
-        "& .fc-daygrid-day.selected-day:hover, & .fc-daygrid-day.selected-day:hover .fc-daygrid-day-frame": {
-          backgroundColor: `${currentTheme.selectedCardBgColor} !important`,
-        },
-
-        // 日付の数字部分の背景は透明にする
-        "& .fc-daygrid-day.selected-day .fc-daygrid-day-top": {
-          backgroundColor: "transparent !important",
-        },
-
-        // 2. ヘッダーの色
-        "& .fc-col-header-cell": {
-          backgroundColor: `${currentTheme.headerBgColor} !important`,
-        },
-
-        // 3. セルのクリック・タッチ可能設定
-        "& .fc-daygrid-day": {
-          cursor: "pointer !important",
-        },
-        "& .fc-daygrid-day-frame": {
-          cursor: "pointer !important",
-        },
-      }}
-    >
+    <Box sx={{ ...getCalendarContainerSx(currentTheme), p: 2 }}>
       <Box display="flex" justifyContent="flex-end" mb={2}>
         <ButtonGroup size="small" variant="outlined">
           <Button
@@ -156,54 +167,127 @@ const Calendar = ({
       </Box>
 
       {calendarMode === "gregorian" ? (
-        <FullCalendar
-          key={`${currentSector}-${currentDay}`}
-          locale={jaLocale}
-          plugins={[dayGridPlugin, interactionPlugin]}
-          initialView="dayGridMonth"
-          firstDay={getFullCalendarFirstDay(currentSector)}
-          selectable={true} // ← ここを追加：日付の選択・クリックを明示的に許可
-          unselectAuto={false} // 選択状態を勝手に解除させない
-          dayCellClassNames={(arg) => {
-            const dateStr = format(arg.date, "yyyy-MM-dd");
-            return dateStr === currentDay ? ["selected-day"] : [];
-          }}
-          dayCellContent={(arg) => {
-            const cubeInfo = convertToCubeDateDetails(arg.date);
-            const dayNumStr = arg.dayNumberText.replace("日", "");
-            return (
-              <Box textAlign="right" sx={{ pointerEvents: "none" }}>
-                {cubeInfo.sqOneLineLabel && (
-                  <Typography
-                    variant="caption"
+        <Box sx={{ mt: 1, pointerEvents: "auto" }}>
+          <Box display="flex" alignItems="center" justifyContent="space-between" sx={{ mb: 2, px: 2, gap: 2, flexWrap: "nowrap" }}>
+            <Box display="flex" alignItems="center" gap={1} sx={{ flexShrink: 0 }}>
+              <IconButton onClick={handlePrevGregorian} size="small"><ArrowBackIosNewIcon /></IconButton>
+              <IconButton onClick={handleNextGregorian} size="small"><ArrowForwardIosIcon /></IconButton>
+              <Button variant="outlined" size="small" onClick={handleTodayGregorian} sx={{ fontWeight: "bold", ml: 0.5 }}>今日</Button>
+              <TextField
+                size="small"
+                placeholder="2026-07-25"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleSearchDate()}
+                sx={{ width: 140, ml: 1 }}
+                InputProps={{ endAdornment: (<InputAdornment position="end"><IconButton size="small" onClick={handleSearchDate} edge="end"><SearchIcon fontSize="small" /></IconButton></InputAdornment>) }}
+              />
+            </Box>
+            <Typography variant="h5" fontWeight="bold" color="text.primary" sx={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+              {format(gregorianAnchorDate, "yyyy年M月")}
+            </Typography>
+          </Box>
+
+          <Box display="flex" sx={{ backgroundColor: currentTheme.headerBgColor, borderRadius: 1, py: 1, mb: 1, textAlign: "center", fontWeight: "bold" }}>
+            {currentWeekdays.map((day) => (
+              <Box key={day} sx={{ width: "14.285%", color: getWeekdayColor(day, currentTheme) }}>{day}</Box>
+            ))}
+          </Box>
+
+          <Grid container spacing={0}>
+            {gregorianDays.map((cellDate) => {
+              const dateStr = format(cellDate, "yyyy-MM-dd");
+              const balanceData = dailyBalances[dateStr];
+              const isSelected = dateStr === currentDay;
+              const isCurrentMonth = isSameMonth(cellDate, gregorianAnchorDate);
+              const selectedBg = currentTheme.selectedCardBgColor ?? "#bbdefb";
+              const cubeInfo = convertToCubeDateDetails(cellDate);
+
+              return (
+                <Grid item key={dateStr} sx={{ width: "14.285%", p: 0.5 }}>
+                  <Paper
+                    elevation={isSelected ? 3 : 1}
                     sx={{
-                      fontSize: "0.6rem",
-                      color: "text.secondary",
-                      display: "block",
-                      lineHeight: 1.1,
-                      fontWeight: "bold",
-                      whiteSpace: "nowrap",
+                      ...getCalendarDayPaperSx(isSelected, currentTheme),
+                      position: "relative",
+                      overflow: "hidden",
+                      p: 0,
+                      opacity: isCurrentMonth ? 1 : 0.4,
+                      ...(isSelected && {
+                        backgroundColor: `${selectedBg} !important`,
+                      }),
                     }}
                   >
-                    {cubeInfo.sqOneLineLabel}
-                  </Typography>
-                )}
-                <Typography variant="body2">{dayNumStr}</Typography>
-              </Box>
-            );
-          }}
-          events={calendarEvents}
-          eventContent={renderEventContent}
-          datesSet={handleDateSet}
-          dateClick={(info) => {
-            if (setCurrentDay) {
-              setCurrentDay(info.dateStr);
-            }
-            if (onDateClick) {
-              onDateClick(info);
-            }
-          }}
-        />
+                    <ButtonBase
+                      onClick={() => {
+                        if (setCurrentDay) setCurrentDay(dateStr);
+                        if (onDateClick) onDateClick({ dateStr, date: cellDate } as DateClickArg);
+                      }}
+                      sx={{
+                        display: "flex",
+                        flexDirection: "column",
+                        justifyContent: "space-between",
+                        alignItems: "stretch",
+                        width: "100%",
+                        height: "100%",
+                        textAlign: "left",
+                        p: 1,
+                        minHeight: 90,
+                        pointerEvents: "auto !important",
+                        backgroundColor: "transparent",
+                      }}
+                    >
+                      {/* 上部：キューブ一行表記 ＆ 日付数字 */}
+                      <Box display="flex" justifyContent="space-between" alignItems="center" width="100%">
+                        {cubeInfo.sqOneLineLabel ? (
+                          <Typography
+                            variant="caption"
+                            sx={{
+                              fontSize: "0.6rem",
+                              color: "text.secondary",
+                              fontWeight: "bold",
+                              whiteSpace: "nowrap",
+                            }}
+                          >
+                            {cubeInfo.sqOneLineLabel}
+                          </Typography>
+                        ) : <span />}
+                        <Typography
+                          variant="subtitle1"
+                          fontWeight="bold"
+                          sx={{ color: getDateNumberColor(getDay(cellDate), currentTheme) }}
+                        >
+                          {format(cellDate, "d")}
+                        </Typography>
+                      </Box>
+
+                      {/* 下部：日別収支データ */}
+                      {balanceData && (
+                        <Box sx={{ mt: "auto", pt: 0.5, width: "100%", textAlign: "right" }}>
+                          {balanceData.income !== undefined && balanceData.income !== null && balanceData.income !== 0 && (
+                            <div className="money" id="event-income" style={{ fontSize: "0.7rem", fontWeight: "bold", lineHeight: 1.2, color: "inherit" }}>
+                              +{formatCurrency(balanceData.income)}
+                            </div>
+                          )}
+                          {balanceData.expense !== undefined && balanceData.expense !== null && balanceData.expense !== 0 && (
+                            <div className="money" id="event-expense" style={{ fontSize: "0.7rem", fontWeight: "bold", lineHeight: 1.2, color: "inherit" }}>
+                              -{formatCurrency(balanceData.expense)}
+                            </div>
+                          )}
+                          {balanceData.balance !== undefined && balanceData.balance !== null && (
+                            <div className="money" id="event-balance" style={{ fontSize: "0.7rem", fontWeight: "bold", lineHeight: 1.2, color: "inherit" }}>
+                              {formatCurrency(balanceData.balance)}
+                            </div>
+                          )}
+                        </Box>
+                      )}
+                    </ButtonBase>
+                  </Paper>
+                </Grid>
+              );
+            })}
+          </Grid>
+        </Box>
       ) : (
         <CubeCalendarView
           currentSector={currentSector}

@@ -90,11 +90,13 @@ export const convertToCubeDateDetails = (targetDate: Date) => {
         const isL19 = sqMaster.sqNum === 20;
         const sqCode = isL19 ? "leap 19" : `${sqMaster.sqNum}`;
         const dayNum = remainingDays + 1;
+        const cbYrlw2 = currentCalcYear.toString().slice(-2);
 
         return {
+          cbYrlw2,
           sqTitle: `${sqCode} (${sqMaster.frenchName}) / ${currentCalcYear}`,
           sqCodeName: `${sqCode} (${sqMaster.frenchName})`,
-          sqOneLineLabel: `${currentCalcYear}-${sqCode}-${dayNum}`,
+          sqOneLineLabel: `${cbYrlw2}-${sqCode}-${dayNum}`,
           sqDays,
           startDate: new Date(accumulatedTime),
           cubeYear: currentCalcYear,
