@@ -57,7 +57,14 @@ export const TransactionMenu = ({
 
       {/* 取引内訳リスト */}
       <Stack spacing={1.5}>
-        {dailyTransactions.map((transaction) => {
+        {[...dailyTransactions]
+          .sort((a: any, b: any) => {
+            // 例: キロ名（kilo または kiloNumber）の数値で降順に並べ替える場合
+            const kiloA = parseInt(String(a.kiloNumber || "").replace(/\D/g, "")) || 0;
+            const kiloB = parseInt(String(b.kiloNumber || "").replace(/\D/g, "")) || 0;
+            return kiloB - kiloA;
+          })
+          .map((transaction) => {
           // ★ 各取引データに設定されている userId (sectorL, sectorI, sectorA 等) からテーマを取得
           const itemSector = transaction.userId || "sectorL";
           const itemTheme = SECTOR_THEMES[itemSector] || SECTOR_THEMES.sectorL;
