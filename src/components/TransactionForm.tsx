@@ -67,10 +67,18 @@ export const TransactionForm = ({
     return "sectorL";
   }, [sectorId]);
 
+  // 現在の時刻（HH:mm形式）を取得するヘルパー
+  const getCurrentTimeString = () => {
+    const now = new Date();
+    return `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+  };
+
   const { control, setValue, watch, handleSubmit, reset } = useForm({
     defaultValues: {
       type: "expense",
       date: currentDay,
+      startTime: "00:00", 
+      endTime: "00:00",   
       amount: 0,
       channel: "",
       kiloNumber: "",
@@ -111,6 +119,8 @@ export const TransactionForm = ({
     if (selectedTransaction) {
       setValue("type", selectedTransaction.type);
       setValue("date", selectedTransaction.date);
+      setValue("startTime", (selectedTransaction as any).startTime || "00:00");
+      setValue("endTime", (selectedTransaction as any).endTime || "00:00");
       setValue("amount", selectedTransaction.amount);
       setValue("channel", selectedTransaction.channel || "");
       setValue("kiloNumber", selectedTransaction.kiloNumber || "");
@@ -121,6 +131,8 @@ export const TransactionForm = ({
       reset({
         type: "expense",
         date: currentDay,
+        startTime: getCurrentTimeString(),
+        endTime: getCurrentTimeString(),
         amount: 0,
         channel: "",
         kiloNumber: "",
@@ -231,6 +243,40 @@ export const TransactionForm = ({
               fullWidth
               size="small"
               InputLabelProps={{ shrink: true }}
+            />
+          )}
+        />
+
+        {/* ★ 時刻入力欄 */}
+        <Controller
+          name="startTime"
+          control={control}
+          render={({ field }) => (
+            <TextField
+              {...field}
+              label="時刻"
+              type="time"
+              fullWidth
+              size="small"
+              InputLabelProps={{ shrink: true }}
+              inputProps={{ step: 300 }} // 5分刻み
+            />
+          )}
+        />
+
+        {/* ★ 終了時刻入力欄 */}
+        <Controller
+          name="endTime"
+          control={control}
+          render={({ field }) => (
+            <TextField
+              {...field}
+              label="終了時刻"
+              type="time"
+              fullWidth
+              size="small"
+              InputLabelProps={{ shrink: true }}
+              inputProps={{ step: 300 }} // 5分刻み
             />
           )}
         />
@@ -377,7 +423,6 @@ export const TransactionForm = ({
     );
   }
 
-  // PC版でも isEntryDrawerOpen が false のときは何も表示しない（または非表示にする）
   if (!isEntryDrawerOpen) {
     return null;
   }

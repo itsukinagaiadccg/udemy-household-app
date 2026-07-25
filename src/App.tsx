@@ -20,6 +20,7 @@ import { Schema } from "./validations/schema.ts";
 import { db } from "./firebase.ts";
 import { formatMonth } from "./utils/formatting.ts";
 import { NewTransaction, Transaction } from "./types";
+import { DailyTimeline } from "./pages/DailyTimeline.tsx";
 
 function App() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -167,6 +168,20 @@ function App() {
               path="report/:sectorId"
               element={
                 <Report
+                  monthlyTransactions={monthlyTransactions}
+                  setCurrentMonth={setCurrentMonth}
+                  currentMonth={currentMonth}
+                  isLoading={isLoading}
+                  onDeleteTransaction={handleDeleteTransaction}
+                />
+              }
+            />
+
+            {/* ★ セクター別デイリータイムライン画面 (sectorL / sectorI / sectorA / shared) */}
+            <Route
+              path="timeline/:sectorId"
+              element={
+                <DailyTimeline
                   monthlyTransactions={monthlyTransactions}
                   setCurrentMonth={setCurrentMonth}
                   currentMonth={currentMonth}

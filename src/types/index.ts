@@ -17,16 +17,17 @@ export type UserCategories = Record<User, UserCategoryConfig>;
 // 取引データ Document 型 (Firestore 保存用)
 export interface Transaction {
   id: string;
+  type: "income" | "expense";
   date: string;
-  time?: string;        // 時刻 (例: "14:30")
+  time?: string; // 従来の時刻（必要に応じて残す）
+  startTime?: string; // ★ 追加：登録開始時刻 (例: "09:00")
+  endTime?: string;   // ★ 追加：登録終了時刻 (例: "11:30")
   amount: number;
-  type: TransactionType;
-  channel: string;      // 1階層目: チャンネル名
-  kiloNumber: string;   // 2階層目: キロ名
-  ticketNumber: string; // 3階層目: チケット番号
+  channel?: string;
+  kiloNumber?: string;
+  ticketNumber?: string;
   content?: string;
-  createdAt?: Timestamp;
-  userId?: User;
+  userId: User;
 }
 
 // ▼ 追加：IDがまだ無い新規作成・フォーム用の型
