@@ -19,7 +19,7 @@ import {
 import { Schema } from "./validations/schema.ts";
 import { db } from "./firebase.ts";
 import { formatMonth } from "./utils/formatting.ts";
-import { Transaction } from "./types";
+import { NewTransaction, Transaction } from "./types";
 
 function App() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -59,14 +59,14 @@ function App() {
   }, []);
 
   // 取引を保存する処理
-  const handleSaveTransaction = async (transaction: Schema) => {
+  const handleSaveTransaction = async (transaction: NewTransaction) => {
     try {
       // firestoreにデータを保存
       const docRef = await addDoc(collection(db, "Transactions"), transaction);
-      const newTransaction = {
-        id: docRef.id,
+      const newTransaction: Transaction = {
         ...transaction,
-      } as Transaction;
+        id: docRef.id,
+      };
       setTransactions((prevTransaction) => [
         ...prevTransaction,
         newTransaction,

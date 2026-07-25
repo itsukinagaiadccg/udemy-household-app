@@ -29,6 +29,9 @@ export interface Transaction {
   userId?: User;
 }
 
+// ▼ 追加：IDがまだ無い新規作成・フォーム用の型
+export type NewTransaction = Omit<Transaction, "id">;
+
 export interface Balance {
   income: number;
   expense: number;

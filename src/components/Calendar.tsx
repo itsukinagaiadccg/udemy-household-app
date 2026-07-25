@@ -42,7 +42,6 @@ const Calendar = ({
 }: CalendarProps) => {
   const { sectorId } = useParams<{ sectorId: string }>();
 
-  // セクターの正規化判定
   const currentSector: User = React.useMemo(() => {
     if (!sectorId) return "sectorL";
     const normalized = sectorId.toLowerCase();
@@ -53,11 +52,9 @@ const Calendar = ({
     return "sectorL";
   }, [sectorId]);
 
-  // テーマの安全な取得
   const currentTheme = SECTOR_THEMES[currentSector as User] || SECTOR_THEMES.sectorL;
   const [calendarMode, setCalendarMode] = useState<CalendarMode>("gregorian");
 
-  // トランザクションデータのフィルタリング
   const filteredTransactions = React.useMemo(() => {
     if (!monthlyTransactions) return [];
     return monthlyTransactions.filter((t: any) => {
@@ -68,10 +65,8 @@ const Calendar = ({
     });
   }, [monthlyTransactions, currentSector]);
 
-  // 日別残高の計算
   const dailyBalances = calculateDailyBalances(filteredTransactions);
 
-  // カレンダーイベントの生成（dateキーを使用）
   const calendarEvents = Object.keys(dailyBalances).map((date) => {
     const { income, expense, balance } = dailyBalances[date];
     return {
@@ -82,7 +77,6 @@ const Calendar = ({
     };
   });
 
-  // イベント内容のレンダリング
   const renderEventContent = (eventInfo: EventContentArg) => (
     <Box sx={{ p: 0.2, width: "100%", overflow: "hidden", pointerEvents: "none" }}>
       <div className="money" id="event-income">{eventInfo.event.extendedProps.income}</div>
@@ -103,26 +97,42 @@ const Calendar = ({
     <Box
       sx={{
         ...getCalendarContainerSx(currentTheme),
+
+        // 1. 選択されたセルの背景色と枠の色を完全強制する
         "& .fc-daygrid-day.selected-day": {
-          backgroundColor: `${currentTheme.selectedCardBgColor ?? "#bbdefb"} !important`,
+          backgroundColor: `${currentTheme.selectedCardBgColor} !important`,
+          borderColor: `${currentTheme.titleColor} !important`,
+          borderWidth: "2px !important",
+          borderStyle: "solid !important",
+          outline: "none !important",
+          zIndex: 5,
         },
-        "& .fc-daygrid-day.selected-day .fc-daygrid-day-frame": {
-          backgroundColor: `${currentTheme.selectedCardBgColor ?? "#bbdefb"} !important`,
+        // セルの中にあるすべての内部フレーム・背景レイヤーの背景色を強制的に一致させる
+        "& .fc-daygrid-day.selected-day .fc-daygrid-day-frame, & .fc-daygrid-day.selected-day .fc-daygrid-day-bg, & .fc-daygrid-day.selected-day .fc-daygrid-day-content": {
+          backgroundColor: `${currentTheme.selectedCardBgColor} !important`,
         },
+        
+        // ホバー時にも色が消えないように固定
+        "& .fc-daygrid-day.selected-day:hover, & .fc-daygrid-day.selected-day:hover .fc-daygrid-day-frame": {
+          backgroundColor: `${currentTheme.selectedCardBgColor} !important`,
+        },
+
+        // 日付の数字部分の背景は透明にする
         "& .fc-daygrid-day.selected-day .fc-daygrid-day-top": {
-          backgroundColor: `${currentTheme.selectedCardBgColor ?? "#bbdefb"} !important`,
+          backgroundColor: "transparent !important",
         },
-        "& .fc-daygrid-day.selected-day:hover": {
-          backgroundColor: `${currentTheme.selectedCardBgColor ?? "#bbdefb"} !important`,
-        },
+
+        // 2. ヘッダーの色
         "& .fc-col-header-cell": {
           backgroundColor: `${currentTheme.headerBgColor} !important`,
         },
-        "& .fc-daygrid-day-frame": {
+
+        // 3. セルのクリック・タッチ可能設定
+        "& .fc-daygrid-day": {
           cursor: "pointer !important",
         },
-        "& .fc-daygrid-event-harness": {
-          pointerEvents: "none",
+        "& .fc-daygrid-day-frame": {
+          cursor: "pointer !important",
         },
       }}
     >
@@ -152,6 +162,8 @@ const Calendar = ({
           plugins={[dayGridPlugin, interactionPlugin]}
           initialView="dayGridMonth"
           firstDay={getFullCalendarFirstDay(currentSector)}
+          selectable={true} // ← ここを追加：日付の選択・クリックを明示的に許可
+          unselectAuto={false} // 選択状態を勝手に解除させない
           dayCellClassNames={(arg) => {
             const dateStr = format(arg.date, "yyyy-MM-dd");
             return dateStr === currentDay ? ["selected-day"] : [];

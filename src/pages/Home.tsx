@@ -5,7 +5,7 @@ import MonthlySummary from "../components/MonthlySummary.tsx";
 import Calendar from "../components/Calendar.tsx";
 import TransactionMenu from "../components/TransactionMenu.tsx";
 import TransactionForm from "../components/TransactionForm.tsx";
-import { Transaction, User } from "../types";
+import { NewTransaction, Transaction, User } from "../types";
 import { format } from "date-fns";
 import { DateClickArg } from "@fullcalendar/interaction";
 import { Schema } from "../validations/schema.ts";
@@ -14,12 +14,12 @@ import { SECTOR_THEMES } from "../components/sectorThemes.ts";
 interface HomeProps {
   monthlyTransactions: Transaction[];
   setCurrentMonth: React.Dispatch<React.SetStateAction<Date>>;
-  onSaveTransaction: (transaction: Schema) => Promise<void>;
+  onSaveTransaction: (transaction: NewTransaction) => Promise<void>;
   onDeleteTransaction: (
     transactionIds: string | readonly string[]
   ) => Promise<void>;
   onUpdateTransaction: (
-    transaction: Schema,
+    transaction: Partial<Transaction>,
     transactionId: string
   ) => Promise<void>;
 }
