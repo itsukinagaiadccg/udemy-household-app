@@ -177,17 +177,15 @@ export const CategoryChart = ({
     return map;
   }, [monthlyTransactions, selectedType, groupLevel, currentSector]);
 
-  // 変更後：キロ番号順の降順（大きい順）に並べ替える処理
+  // キロ番号順の降順（大きい順）に並べ替える処理
   const sortedEntries = useMemo(() => {
     return Object.entries(aggregatedData).sort((a, b) => {
-      // a[1] や b[1] にはオブジェクト（item）が入っています
       const itemA = a[1];
       const itemB = b[1];
 
       const numA = parseInt(String(itemA.kiloNumber || itemA.ticketNumber || "").replace(/\D/g, ""), 10) || 0;
       const numB = parseInt(String(itemB.kiloNumber || itemB.ticketNumber || "").replace(/\D/g, ""), 10) || 0;
       
-      // 降順（大きい順）
       return numB - numA;
     });
   }, [aggregatedData]);
@@ -196,12 +194,12 @@ export const CategoryChart = ({
   const labels = sortedEntries.map(([label]) => label);
   const values = sortedEntries.map(([, item]) => item.amount);
 
-  // カラー判定ロジック
+  // ★ カラー判定ロジック（ソート済みの sortedEntries をベースにするように修正）
   const { bgColors, borderColors } = useMemo(() => {
     const bgList: string[] = [];
     const borderList: string[] = [];
 
-    Object.values(aggregatedData).forEach((item) => {
+    sortedEntries.forEach(([, item]) => {
       const userId = item.userId;
       const sectorColors =
         SECTOR_CATEGORY_COLORS[userId] || SECTOR_CATEGORY_COLORS.shared;
@@ -212,17 +210,14 @@ export const CategoryChart = ({
       let finalHex = "";
 
       if (groupLevel === "ticket") {
-        // チケット番号表示時：親キロ名（またはチャンネル名）の指定固定色を取得
         const parentBaseHex =
           sectorColors[item.kiloNumber] ||
           sectorColors[item.channel] ||
           sectorColors[item.ticketNumber] ||
           fallbackHex;
 
-        // ★ 文字列ハッシュに基づき確実に差が出る類似色を生成
         finalHex = generateSimilarColorFromNum(parentBaseHex, item.ticketNumber);
       } else {
-        // チャンネル別・キロ名別表示時：指定の固定色を適用
         finalHex = sectorColors[item.targetKey] || fallbackHex;
       }
 
@@ -231,7 +226,7 @@ export const CategoryChart = ({
     });
 
     return { bgColors: bgList, borderColors: borderList };
-  }, [aggregatedData, selectedType, groupLevel]);
+  }, [sortedEntries, selectedType, groupLevel]);
 
   const data = {
     labels,
