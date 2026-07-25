@@ -1,30 +1,19 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
+import { Chart as ChartJS, ArcElement, Tooltip, Legend } from "chart.js";
 import { Pie } from "react-chartjs-2";
-
-import {
-  Chart as ChartJS,
-  ArcElement,
-  Tooltip,
-  Legend,
-  ChartData,
-} from "chart.js";
+import { useParams } from "react-router-dom";
 import {
   Box,
+  Typography,
   CircularProgress,
   FormControl,
   InputLabel,
-  MenuItem,
   Select,
-  SelectChangeEvent,
-  Typography,
-  useTheme,
+  MenuItem,
+  Stack,
 } from "@mui/material";
-import {
-  ExpenseCategory,
-  IncomeCategory,
-  Transaction,
-  TransactionType,
-} from "../types";
+import { Transaction, User } from "../types";
+import { SECTOR_THEMES, SECTOR_CATEGORY_COLORS } from "../const/sectorThemes.tsx";
 
 ChartJS.register(ArcElement, Tooltip, Legend);
 
@@ -33,119 +22,283 @@ interface CategoryChartProps {
   isLoading: boolean;
 }
 
-const CategoryChart = ({
+// HEX -> RGBA 変換
+const hexToRgba = (hex: string, alpha: number) => {
+  let c = hex.replace("#", "");
+  if (c.length === 3) {
+    c = c.split("").map((char) => char + char).join("");
+  }
+  const num = parseInt(c, 16);
+  return `rgba(${(num >> 16) & 255}, ${(num >> 8) & 255}, ${num & 255}, ${alpha})`;
+};
+
+// HEX -> HSL 変換
+const hexToHsl = (hex: string) => {
+  let c = hex.replace("#", "");
+  if (c.length === 3) {
+    c = c.split("").map((char) => char + char).join("");
+  }
+  const r = parseInt(c.substring(0, 2), 16) / 255;
+  const g = parseInt(c.substring(2, 4), 16) / 255;
+  const b = parseInt(c.substring(4, 6), 16) / 255;
+
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  let h = 0;
+  let s = 0;
+  const l = (max + min) / 2;
+
+  if (max !== min) {
+    const d = max - min;
+    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+    switch (max) {
+      case r:
+        h = (g - b) / d + (g < b ? 6 : 0);
+        break;
+      case g:
+        h = (b - r) / d + 2;
+        break;
+      case b:
+        h = (r - g) / d + 4;
+        break;
+    }
+    h /= 6;
+  }
+  return { h: h * 360, s: s * 100, l: l * 100 };
+};
+
+// HSL -> HEX 変換
+const hslToHex = (h: number, s: number, l: number) => {
+  l /= 100;
+  const a = (s * Math.min(l, 1 - l)) / 100;
+  const f = (n: number) => {
+    const k = (n + h / 30) % 12;
+    const color = l - a * Math.max(Math.min(k - 3, 9 - k, 1), -1);
+    return Math.round(255 * color)
+      .toString(16)
+      .padStart(2, "0");
+  };
+  return `#${f(0)}${f(8)}${f(4)}`;
+};
+
+// ★ 文字列全体から決定論的なハッシュ値を生成（かぶり防止）
+const getTicketHash = (ticketStr: string): number => {
+  let hash = 0;
+  for (let i = 0; i < ticketStr.length; i++) {
+    hash = ticketStr.charCodeAt(i) + ((hash << 5) - hash);
+    hash = hash & hash;
+  }
+  return Math.abs(hash);
+};
+
+// ★ ベースカラーとチケット番号から確実に色差が出る類似色を生成する関数
+const generateSimilarColorFromNum = (baseHex: string, ticketNumber: string) => {
+  const { h, s, l } = hexToHsl(baseHex);
+
+  if (!ticketNumber) return baseHex;
+
+  const hash = getTicketHash(ticketNumber);
+
+  // 1. 色相(Hue): -25° 〜 +25° の範囲で変化させて明確な色差を確保
+  const hueShift = (hash % 51) - 25;
+  const newHue = (h + hueShift + 360) % 360;
+
+  // 2. 明度(Lightness): -20% 〜 +20% で濃淡を調整
+  const lightnessShift = (Math.floor(hash / 7) % 41) - 20;
+  const newLightness = Math.min(85, Math.max(25, l + lightnessShift));
+
+  // 3. 彩度(Saturation): -15% 〜 +15%
+  const saturationShift = (Math.floor(hash / 13) % 31) - 15;
+  const newSaturation = Math.min(100, Math.max(30, s + saturationShift));
+
+  return hslToHex(newHue, newSaturation, newLightness);
+};
+
+export const CategoryChart = ({
   monthlyTransactions,
   isLoading,
 }: CategoryChartProps) => {
-  const theme = useTheme();
-  const [selectedType, setSelectedType] = useState<TransactionType>("expense");
+  const [selectedType, setSelectedType] = useState<"income" | "expense">("expense");
+  const [groupLevel, setGroupLevel] = useState<"channel" | "kilo" | "ticket">("ticket");
+  const { sectorId } = useParams<{ sectorId: string }>();
 
-  const handleChange = (e: SelectChangeEvent<TransactionType>) => {
-    setSelectedType(e.target.value as TransactionType);
-  };
+  const currentSector: User = useMemo(() => {
+    if (!sectorId) return "sectorL";
+    const normalized = sectorId.toLowerCase();
+    if (normalized === "sectorl") return "sectorL";
+    if (normalized === "sectori") return "sectorI";
+    if (normalized === "sectora") return "sectorA";
+    if (normalized === "shared") return "shared";
+    return "sectorL";
+  }, [sectorId]);
 
-  // カテゴリごとの合計金額計算
-  const categorySums = monthlyTransactions
-    .filter((transaction) => transaction.type === selectedType)
-    .reduce<Record<IncomeCategory | ExpenseCategory, number>>(
-      (acc, transaction) => {
-        if (!acc[transaction.category]) {
-          acc[transaction.category] = 0;
+  // 集計処理
+  const aggregatedData = useMemo(() => {
+    const map: Record<
+      string,
+      {
+        amount: number;
+        userId: User;
+        channel: string;
+        kiloNumber: string;
+        ticketNumber: string;
+        targetKey: string;
+      }
+    > = {};
+
+    monthlyTransactions
+      .filter((t) => t.type === selectedType)
+      .forEach((t) => {
+        const userId = t.userId || "sectorL";
+        const sectorLabel = SECTOR_THEMES[userId]?.label || "セクター L";
+
+        let targetKey = t.ticketNumber || "未分類";
+        if (groupLevel === "channel") targetKey = t.channel || "未分類";
+        if (groupLevel === "kilo") targetKey = t.kiloNumber || "未分類";
+
+        const displayLabel =
+          currentSector === "shared"
+            ? `${targetKey} (${sectorLabel})`
+            : targetKey;
+
+        if (!map[displayLabel]) {
+          map[displayLabel] = {
+            amount: 0,
+            userId,
+            channel: t.channel || "",
+            kiloNumber: t.kiloNumber || "",
+            ticketNumber: t.ticketNumber || "",
+            targetKey,
+          };
         }
-        acc[transaction.category] += transaction.amount;
-        return acc;
-      },
-      {} as Record<IncomeCategory | ExpenseCategory, number>
-    );
+        map[displayLabel].amount += t.amount;
+      });
 
-  const categoryLabels = Object.keys(categorySums) as (
-    | IncomeCategory
-    | ExpenseCategory
-  )[];
-  const categoryValues = Object.values(categorySums);
+    return map;
+  }, [monthlyTransactions, selectedType, groupLevel, currentSector]);
 
-  const options = {
-    maintainAspectRatio: false,
-    responsive: true,
-  };
+  const labels = Object.keys(aggregatedData);
+  const values = Object.values(aggregatedData).map((item) => item.amount);
 
-  //収入用カテゴリカラー
-  const incomeCategoryColor: Record<IncomeCategory, string> = {
-    給与: theme.palette.incomeCategoryColor.給与,
-    副収入: theme.palette.incomeCategoryColor.副収入,
-    お小遣い: theme.palette.incomeCategoryColor.お小遣い,
-  };
+  // カラー判定ロジック
+  const { bgColors, borderColors } = useMemo(() => {
+    const bgList: string[] = [];
+    const borderList: string[] = [];
 
-  //支出用カテゴリカラー
-  const expenseCategoryColor: Record<ExpenseCategory, string> = {
-    食費: theme.palette.expenseCategoryColor.食費,
-    日用品: theme.palette.expenseCategoryColor.日用品,
-    住居費: theme.palette.expenseCategoryColor.住居費,
-    交際費: theme.palette.expenseCategoryColor.交際費,
-    交通費: theme.palette.expenseCategoryColor.交通費,
-    娯楽: theme.palette.expenseCategoryColor.娯楽,
-  };
+    Object.values(aggregatedData).forEach((item) => {
+      const userId = item.userId;
+      const sectorColors =
+        SECTOR_CATEGORY_COLORS[userId] || SECTOR_CATEGORY_COLORS.shared;
+      const theme = SECTOR_THEMES[userId] || SECTOR_THEMES.sectorL;
+      const fallbackHex =
+        selectedType === "income" ? theme.incomeBgColor : theme.expenseBgColor;
 
-  const getCategoryColor = (
-    category: IncomeCategory | ExpenseCategory
-  ): string => {
-    if (selectedType === "income") {
-      return incomeCategoryColor[category as IncomeCategory];
-    } else {
-      return expenseCategoryColor[category as ExpenseCategory];
-    }
-  };
+      let finalHex = "";
 
-  const data: ChartData<"pie"> = {
-    labels: categoryLabels,
+      if (groupLevel === "ticket") {
+        // チケット番号表示時：親キロ名（またはチャンネル名）の指定固定色を取得
+        const parentBaseHex =
+          sectorColors[item.kiloNumber] ||
+          sectorColors[item.channel] ||
+          sectorColors[item.ticketNumber] ||
+          fallbackHex;
+
+        // ★ 文字列ハッシュに基づき確実に差が出る類似色を生成
+        finalHex = generateSimilarColorFromNum(parentBaseHex, item.ticketNumber);
+      } else {
+        // チャンネル別・キロ名別表示時：指定の固定色を適用
+        finalHex = sectorColors[item.targetKey] || fallbackHex;
+      }
+
+      bgList.push(hexToRgba(finalHex, 0.85));
+      borderList.push(hexToRgba(finalHex, 1.0));
+    });
+
+    return { bgColors: bgList, borderColors: borderList };
+  }, [aggregatedData, selectedType, groupLevel]);
+
+  const data = {
+    labels,
     datasets: [
       {
-        data: categoryValues,
-        backgroundColor: categoryLabels.map((category) =>
-          getCategoryColor(category)
-        ),
-
-        borderColor: categoryLabels.map((category) =>
-          getCategoryColor(category)
-        ),
-
-        borderWidth: 1,
+        data: values,
+        backgroundColor: bgColors,
+        borderColor: borderColors,
+        borderWidth: 1.5,
       },
     ],
   };
 
+  const options = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: {
+        position: "bottom" as const,
+      },
+      tooltip: {
+        callbacks: {
+          label: (context: any) => {
+            const label = context.label || "";
+            const value = context.parsed || 0;
+            return ` ${label}: ¥${value.toLocaleString()}`;
+          },
+        },
+      },
+    },
+  };
+
+  if (isLoading) {
+    return (
+      <Box display="flex" justifyContent="center" alignItems="center" height="100%">
+        <CircularProgress />
+      </Box>
+    );
+  }
+
   return (
-    <>
-      <FormControl fullWidth>
-        <InputLabel id="type-select-label">収支の種類</InputLabel>
-        <Select
-          labelId="type-select-label"
-          id="type-select"
-          value={selectedType}
-          label="収支の種類"
-          onChange={handleChange}
-        >
-          <MenuItem value="income">収入</MenuItem>
-          <MenuItem value="expense">支出</MenuItem>
-        </Select>
-      </FormControl>
-      <Box
-        sx={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          flexGrow: 1,
-        }}
-      >
-        {isLoading ? (
-          <CircularProgress />
-        ) : monthlyTransactions.length > 0 ? (
-          <Pie data={data} options={options} />
+    <Box sx={{ height: "100%", display: "flex", flexDirection: "column" }}>
+      <Stack direction="row" spacing={1} sx={{ mb: 2 }}>
+        <FormControl size="small" sx={{ width: 110 }}>
+          <InputLabel id="type-select-label">収支</InputLabel>
+          <Select
+            labelId="type-select-label"
+            value={selectedType}
+            label="収支"
+            onChange={(e) => setSelectedType(e.target.value as "income" | "expense")}
+          >
+            <MenuItem value="expense">ノルマ</MenuItem>
+            <MenuItem value="income">完了</MenuItem>
+          </Select>
+        </FormControl>
+
+        <FormControl size="small" sx={{ width: 150 }}>
+          <InputLabel id="group-select-label">集計単位</InputLabel>
+          <Select
+            labelId="group-select-label"
+            value={groupLevel}
+            label="集計単位"
+            onChange={(e) =>
+              setGroupLevel(e.target.value as "channel" | "kilo" | "ticket")
+            }
+          >
+            <MenuItem value="channel">チャンネル別</MenuItem>
+            <MenuItem value="kilo">キロ名別</MenuItem>
+            <MenuItem value="ticket">チケット番号別</MenuItem>
+          </Select>
+        </FormControl>
+      </Stack>
+
+      <Box sx={{ flexGrow: 1, position: "relative", minHeight: 0 }}>
+        {labels.length === 0 ? (
+          <Box display="flex" justifyContent="center" alignItems="center" height="100%">
+            <Typography color="text.secondary">データがありません</Typography>
+          </Box>
         ) : (
-          <Typography>データがありません</Typography>
+          <Pie data={data} options={options} />
         )}
       </Box>
-    </>
+    </Box>
   );
 };
 

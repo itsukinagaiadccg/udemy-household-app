@@ -18,9 +18,9 @@ import DeleteIcon from "@mui/icons-material/Delete";
 import { financeCalculations } from "../utils/financeCalculations.ts";
 import { Grid } from "@mui/material";
 import { formatCurrency } from "../utils/formatting.ts";
-import IconComponents from "./common/IconComponents.tsx";
 import { compareDesc, parseISO } from "date-fns";
 import { Transaction } from "../types";
+import { getKiloIcon } from "../const/sectorThemes.tsx";
 
 interface TransactionTableHeadProps {
   numSelected: number;
@@ -114,7 +114,8 @@ interface FinancialItemProps {
   value: number;
   color: string;
 }
-//収支表示コンポーネント
+
+// 収支表示コンポーネント
 function FinancialItem({ title, value, color }: FinancialItemProps) {
   return (
     <Grid item xs={4} textAlign={"center"}>
@@ -141,7 +142,7 @@ interface TransactionTableProps {
   onDeleteTransaction: (ids: string | readonly string[]) => Promise<void>;
 }
 
-//本体
+// 本体
 export default function TransactionTable({
   monthlyTransactions,
   onDeleteTransaction,
@@ -190,7 +191,7 @@ export default function TransactionTable({
     setPage(0);
   };
 
-  //削除処理
+  // 削除処理
   const handleDelete = () => {
     onDeleteTransaction(selected);
     setSelected([]);
@@ -198,13 +199,12 @@ export default function TransactionTable({
 
   const isSelected = (id: string) => selected.indexOf(id) !== -1;
 
-  // Avoid a layout jump when reaching the last page with empty rows.
   const emptyRows =
     page > 0
       ? Math.max(0, (1 + page) * rowsPerPage - monthlyTransactions.length)
       : 0;
 
-  //取引データから表示件数分取得
+  // 取引データから表示件数分取得
   const visibleRows = React.useMemo(() => {
     const sortedMonthlyTransactions = [...monthlyTransactions].sort((a, b) =>
       compareDesc(parseISO(a.date), parseISO(b.date))
@@ -227,19 +227,19 @@ export default function TransactionTable({
           sx={{ borderBottom: "1px solid rgba(224, 224, 224, 1)" }}
         >
           <FinancialItem
-            title={"収入"}
+            title={"完了"}
             value={income}
             color={theme.palette.incomeColor.main}
           />
 
           <FinancialItem
-            title={"支出"}
+            title={"ノルマ"}
             value={expense}
             color={theme.palette.expenseColor.main}
           />
 
           <FinancialItem
-            title={"残高"}
+            title={"残"}
             value={balance}
             color={theme.palette.balanceColor.main}
           />
@@ -251,7 +251,7 @@ export default function TransactionTable({
           onDelete={handleDelete}
         />
 
-        {/* 取引一覧*/}
+        {/* 取引一覧 */}
         <TableContainer>
           <Table
             sx={{ minWidth: 750 }}
@@ -269,6 +269,21 @@ export default function TransactionTable({
               {visibleRows.map((transaction, index) => {
                 const isItemSelected = isSelected(transaction.id);
                 const labelId = `enhanced-table-checkbox-${index}`;
+
+                // カテゴリ表示用テキスト（1.チケット番号 -> 2.キロ名 -> 3.チャンネル名 -> 4.旧カテゴリ）
+                const categoryLabel =
+                  transaction.ticketNumber ||
+                  transaction.kiloNumber ||
+                  transaction.channel ||
+                  (transaction as any).category ||
+                  "未分類";
+
+                // キロ名に応じたアイコンの取得
+                const iconNode = getKiloIcon(
+                  transaction.kiloNumber,
+                  (transaction as any).category,
+                  transaction.userId
+                );
 
                 return (
                   <TableRow
@@ -302,8 +317,9 @@ export default function TransactionTable({
                       align="left"
                       sx={{ display: "flex", alignItems: "center" }}
                     >
-                      {IconComponents[transaction.category]}
-                      {transaction.category}
+                      {/* キロ名に応じたアイコンを描画 */}
+                      {iconNode}
+                      <Typography variant="body2">{categoryLabel}</Typography>
                     </TableCell>
                     <TableCell align="left">{transaction.amount}</TableCell>
                     <TableCell align="left">{transaction.content}</TableCell>

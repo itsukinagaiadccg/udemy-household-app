@@ -4,30 +4,30 @@ import {
   Card,
   CardActionArea,
   CardContent,
-  Drawer,
+  Chip,
   Grid,
-  List,
-  ListItem,
   Stack,
   Typography,
 } from "@mui/material";
 import React from "react";
-import DailySummary from "./DailySummary.tsx";
 import NotesIcon from "@mui/icons-material/Notes";
 import AddCircleIcon from "@mui/icons-material/AddCircle";
+import WorkIcon from "@mui/icons-material/Work"; // アイコン例
 import { Transaction } from "../types";
+import { SECTOR_THEMES } from "../const/sectorThemes.tsx"; // ★ SECTOR_THEMES をインポート
 import { formatCurrency } from "../utils/formatting.ts";
-import IconComponents from "./common/IconComponents.tsx";
+
 interface TransactionMenuProps {
   dailyTransactions: Transaction[];
   currentDay: string;
   onAddTransactionForm: () => void;
-  onSelectTransaction: (trnsaction: Transaction) => void;
+  onSelectTransaction: (transaction: Transaction) => void;
   open: boolean;
   onClose: () => void;
   isMobile: boolean;
 }
-const TransactionMenu = ({
+
+export const TransactionMenu = ({
   dailyTransactions,
   currentDay,
   onAddTransactionForm,
@@ -36,126 +36,111 @@ const TransactionMenu = ({
   onClose,
   isMobile,
 }: TransactionMenuProps) => {
-  const menuDrawerWidth = 320;
   return (
-    <Drawer
-      sx={{
-        width: isMobile ? "auto" : menuDrawerWidth,
-        "& .MuiDrawer-paper": {
-          width: isMobile ? "auto" : menuDrawerWidth,
-          boxSizing: "border-box",
-          p: 2,
-          ...(isMobile && {
-            height: "80vh",
-            borderTopRightRadius: 8,
-            borderTopLeftRadius: 8,
-          }),
-          ...(!isMobile && {
-            top: 64,
-            height: `calc(100% - 64px)`, // AppBarの高さを引いたビューポートの高さ
-          }),
-        },
-      }}
-      variant={isMobile ? "temporary" : "permanent"}
-      anchor={isMobile ? "bottom" : "right"}
-      open={open}
-      onClose={onClose}
-    >
-      <Stack sx={{ height: "100%" }} spacing={2}>
-        {/* 日付 */}
-        <Typography fontWeight={"bold"}>日時： {currentDay}</Typography>
-        <DailySummary
-          dailyTransactions={dailyTransactions}
-          columns={isMobile ? 3 : 2}
-        />
-        {/* 内訳タイトル&内訳追加ボタン */}
-        <Box
-          sx={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            p: 1,
-          }}
+    <Box sx={{ width: { xs: "100%", md: 320 }, p: 2 }}>
+      {/* ヘッダー部分 */}
+      <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+        <Stack direction="row" alignItems="center" spacing={1}>
+          <NotesIcon />
+          <Typography variant="h6" fontWeight="bold">
+            内訳
+          </Typography>
+        </Stack>
+        <Button
+          startIcon={<AddCircleIcon />}
+          onClick={onAddTransactionForm}
+          sx={{ fontWeight: "bold" }}
         >
-          {/* 左側のメモアイコンとテキスト */}
-          <Box display="flex" alignItems="center">
-            <NotesIcon sx={{ mr: 1 }} />
-            <Typography variant="body1">内訳</Typography>
-          </Box>
-          {/* 右側の追加ボタン */}
-          <Button
-            startIcon={<AddCircleIcon />}
-            color="primary"
-            onClick={onAddTransactionForm}
+          内訳を追加
+        </Button>
+      </Box>
+
+      {/* 取引内訳リスト */}
+      <Stack spacing={1.5}>
+        {dailyTransactions.map((transaction) => {
+          // ★ 各取引データに設定されている userId (sectorL, sectorI, sectorA 等) からテーマを取得
+          const itemSector = transaction.userId || "sectorL";
+          const itemTheme = SECTOR_THEMES[itemSector] || SECTOR_THEMES.sectorL;
+
+          //完了かノルマかによって色を出し分ける場合（または選択カード色を使う場合）
+          const cardBgColor =
+            transaction.type === "income"
+              ? itemTheme.incomeBgColor // セクターごとの完了カラー
+              : itemTheme.expenseBgColor; // セクターごとのノルマカラー
+
+          return (
+            <Card
+              key={transaction.id}
+              elevation={1}
+              sx={{
+                // ★ 取引データのセクター色を背景色に反映（少し透過させたい場合は alpha 設定も可）
+                backgroundColor: cardBgColor,
+                color: "#ffffff",
+                borderRadius: 2,
+                transition: "all 0.2s ease-in-out",
+                "&:hover": {
+                  boxShadow: 3,
+                },
+              }}
+            >
+              <CardActionArea onClick={() => onSelectTransaction(transaction)}>
+                <CardContent sx={{ p: 1.5, "&:last-child": { pb: 1.5 } }}>
+                  <Grid container alignItems="center" spacing={1}>
+                    {/* アイコン */}
+                    <Grid item>
+                      <WorkIcon sx={{ color: "#ffffff" }} />
+                    </Grid>
+
+                    {/* カテゴリ & セクターチップ */}
+                    <Grid item xs>
+                      <Box display="flex" alignItems="center" gap={1} mb={0.5}>
+                        <Typography variant="subtitle2" fontWeight="bold">
+                          {transaction.ticketNumber || transaction.kiloNumber || transaction.channel || "未分類"}
+                        </Typography>
+                        {/* セクターチップ */}
+                        <Chip
+                          label={itemTheme.label}
+                          size="small"
+                          sx={{
+                            height: 20,
+                            fontSize: "0.65rem",
+                            backgroundColor: "rgba(255, 255, 255, 0.25)",
+                            color: "#ffffff",
+                            fontWeight: "bold",
+                          }}
+                        />
+                      </Box>
+                      <Typography variant="caption" sx={{ opacity: 0.9 }}>
+                        {transaction.content || "メモなし"}
+                      </Typography>
+                    </Grid>
+
+                    {/* 金額 */}
+                    <Grid item>
+                      <Typography variant="subtitle1" fontWeight="bold">
+                        ¥{formatCurrency(transaction.amount)}
+                      </Typography>
+                    </Grid>
+                  </Grid>
+                </CardContent>
+              </CardActionArea>
+            </Card>
+          );
+        })}
+
+        {dailyTransactions.length === 0 && (
+          <Typography
+            variant="body2"
+            color="text.secondary"
+            textAlign="center"
+            sx={{ py: 4 }}
           >
-            内訳を追加
-          </Button>
-        </Box>
-        {/* 取引一覧 */}
-        <Box sx={{ flexGrow: 1, overflowY: "auto" }}>
-          <List aria-label="取引履歴">
-            <Stack spacing={2}>
-              {dailyTransactions.map((transaction) => (
-                <ListItem disablePadding key={transaction.id}>
-                  <Card
-                    sx={{
-                      width: "100%",
-                      backgroundColor:
-                        transaction.type === "income"
-                          ? (theme) => theme.palette.incomeColor.light
-                          : (theme) => theme.palette.expenseColor.light,
-                    }}
-                    onClick={() => onSelectTransaction(transaction)}
-                  >
-                    <CardActionArea>
-                      <CardContent>
-                        <Grid
-                          container
-                          spacing={1}
-                          alignItems="center"
-                          wrap="wrap"
-                        >
-                          <Grid item xs={1}>
-                            {/* icon */}
-                            {IconComponents[transaction.category]}
-                          </Grid>
-                          <Grid item xs={2.5}>
-                            <Typography
-                              variant="caption"
-                              display="block"
-                              gutterBottom
-                            >
-                              {transaction.category}
-                            </Typography>
-                          </Grid>
-                          <Grid item xs={4}>
-                            <Typography variant="body2" gutterBottom>
-                              {transaction.content}
-                            </Typography>
-                          </Grid>
-                          <Grid item xs={4.5}>
-                            <Typography
-                              gutterBottom
-                              textAlign={"right"}
-                              color="text.secondary"
-                              sx={{
-                                wordBreak: "break-all",
-                              }}
-                            >
-                              ¥{formatCurrency(transaction.amount)}
-                            </Typography>
-                          </Grid>
-                        </Grid>
-                      </CardContent>
-                    </CardActionArea>
-                  </Card>
-                </ListItem>
-              ))}
-            </Stack>
-          </List>
-        </Box>
+            この日の内訳はありません
+          </Typography>
+        )}
       </Stack>
-    </Drawer>
+    </Box>
   );
 };
+
 export default TransactionMenu;

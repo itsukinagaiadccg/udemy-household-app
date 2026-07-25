@@ -1,7 +1,6 @@
 import React, { useState } from "react";
-
 import "./App.css";
-import { Route, BrowserRouter as Router, Routes } from "react-router-dom";
+import { Route, BrowserRouter as Router, Routes, Navigate } from "react-router-dom";
 import Home from "./pages/Home.tsx";
 import Report from "./pages/Report.tsx";
 import NoMatch from "./pages/NoMatch.tsx";
@@ -27,16 +26,16 @@ function App() {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [isLoading, setIsLoading] = useState(true);
 
-  //型ガード
+  // 型ガード
   function isFirestoreError(
     err: unknown
   ): err is { code: string; message: string } {
     return typeof err === "object" && err !== null && "code" in err;
   }
 
-  //firestoreのデータを全て取得
+  // Firestoreのデータを全て取得
   React.useEffect(() => {
-    const fecheTransactions = async () => {
+    const fetchTransactions = async () => {
       try {
         const querySnapshot = await getDocs(collection(db, "Transactions"));
         const transactionsData = querySnapshot.docs.map((doc) => {
@@ -56,13 +55,13 @@ function App() {
         setIsLoading(false);
       }
     };
-    fecheTransactions();
+    fetchTransactions();
   }, []);
 
-  //取引を保存する処理
+  // 取引を保存する処理
   const handleSaveTransaction = async (transaction: Schema) => {
     try {
-      //firestoreにデータを保存
+      // firestoreにデータを保存
       const docRef = await addDoc(collection(db, "Transactions"), transaction);
       const newTransaction = {
         id: docRef.id,
@@ -81,7 +80,7 @@ function App() {
     }
   };
 
-  //削除処理
+  // 削除処理
   const handleDeleteTransaction = async (
     transactionIds: string | readonly string[]
   ) => {
@@ -91,14 +90,14 @@ function App() {
         : [transactionIds];
 
       for (const id of idsToDelete) {
-        //firestoreのデータ削除
+        // firestoreのデータ削除
         await deleteDoc(doc(db, "Transactions", id));
       }
-      //複数の取引を削除可能
-      const filterdTransactions = transactions.filter(
+      // 複数の取引を削除可能
+      const filteredTransactions = transactions.filter(
         (transaction) => !idsToDelete.includes(transaction.id)
       );
-      setTransactions(filterdTransactions);
+      setTransactions(filteredTransactions);
     } catch (err) {
       if (isFirestoreError(err)) {
         console.error("firestoreのエラーは：", err);
@@ -108,17 +107,17 @@ function App() {
     }
   };
 
-  //更新処理
+  // 更新処理
   const handleUpdateTransaction = async (
     transaction: Schema,
     transactionId: string
   ) => {
     try {
-      //firestore更新処理
+      // firestore更新処理
       const docRef = doc(db, "Transactions", transactionId);
 
       await updateDoc(docRef, transaction);
-      //フロント更新
+      // フロント更新
       const updatedTransactions = transactions.map((t) =>
         t.id === transactionId ? { ...t, ...transaction } : t
       ) as Transaction[];
@@ -132,7 +131,7 @@ function App() {
     }
   };
 
-  //月間の取引データを取得
+  // 月間の取引データを取得（全セクター対象）
   const monthlyTransactions = transactions.filter((transaction) => {
     return transaction.date.startsWith(formatMonth(currentMonth));
   });
@@ -143,8 +142,12 @@ function App() {
       <Router>
         <Routes>
           <Route path="/" element={<AppLayout />}>
+            {/* トップアクセス時はデフォルトの sectorL へリダイレクト */}
+            <Route index element={<Navigate to="/sector/sectorL" replace />} />
+
+            {/* セクター別ダッシュボード画面 (sectorL / sectorI / sectorA / shared) */}
             <Route
-              index
+              path="sector/:sectorId"
               element={
                 <Home
                   monthlyTransactions={monthlyTransactions}
@@ -155,8 +158,13 @@ function App() {
                 />
               }
             />
+
+            {/* ★ レポート画面のリダイレクト設定 */}
+            <Route path="report" element={<Navigate to="/report/sectorL" replace />} />
+
+            {/* ★ セクター別レポート画面 (sectorL / sectorI / sectorA / shared) */}
             <Route
-              path="/report"
+              path="report/:sectorId"
               element={
                 <Report
                   monthlyTransactions={monthlyTransactions}
@@ -167,6 +175,8 @@ function App() {
                 />
               }
             />
+
+            {/* 404ページ */}
             <Route path="*" element={<NoMatch />} />
           </Route>
         </Routes>

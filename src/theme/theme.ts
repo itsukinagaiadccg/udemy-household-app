@@ -11,7 +11,7 @@ import {
   purple,
   red,
 } from "@mui/material/colors";
-import { ExpenseCategory, IncomeCategory } from "../types";
+// import { ExpenseCategory, IncomeCategory } from "../types";
 
 //PalatteとPaletteOptionsの型を拡張
 declare module "@mui/material/styles" {
@@ -20,8 +20,8 @@ declare module "@mui/material/styles" {
     expenseColor: PaletteColor;
     balanceColor: PaletteColor;
 
-    incomeCategoryColor: Record<IncomeCategory, string>;
-    expenseCategoryColor: Record<ExpenseCategory, string>;
+    incomeCategoryColor: Record<string, string>;
+    expenseCategoryColor: Record<string, string>;
   }
 
   interface PaletteOptions {
@@ -29,8 +29,8 @@ declare module "@mui/material/styles" {
     expenseColor?: PaletteColorOptions;
     balanceColor?: PaletteColorOptions;
 
-    incomeCategoryColor?: Record<IncomeCategory, string>;
-    expenseCategoryColor?: Record<ExpenseCategory, string>;
+    incomeCategoryColor?: Record<string, string>;
+    expenseCategoryColor?: Record<string, string>;
   }
 }
 
@@ -43,21 +43,21 @@ export const theme = createTheme({
   },
 
   palette: {
-    //収入用の色を定義
+    //完了用の色を定義
     incomeColor: {
       main: blue[500],
       light: blue[100],
       dark: blue[700],
     },
 
-    //支出用の色を定義
+    //ノルマ用の色を定義
     expenseColor: {
       main: red[500],
       light: red[100],
       dark: red[700],
     },
 
-    //残高用の色を定義
+    //残用の色を定義
     balanceColor: {
       main: green[500],
       light: green[300],

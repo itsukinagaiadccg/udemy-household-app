@@ -9,15 +9,13 @@ export const transactionSchema = z.object({
     .min(1, { message: "内容を入力してください" })
     .max(50, { message: "内容は50文字以内にしてください。" }),
 
-  category: z
-    .union([
-      z.enum(["食費", "日用品", "住居費", "交際費", "娯楽", "交通費"]),
-      z.enum(["給与", "副収入", "お小遣い"]),
-      z.literal(""),
-    ])
-    .refine((val) => val !== "", {
-      message: "カテゴリを選択してください",
-    }),
+  // ★ 1. errorMap を使って required_error の赤波線エラーを解消
+  userId: z.enum(["sectorL", "sectorI", "sectorA", "shared"], {
+    errorMap: () => ({ message: "セクターを選択してください" }),
+  }),
+
+  // ★ 2. 動的カテゴリ（パターンB）に対応するため、string + min(1) にシンプル化
+  category: z.string().min(1, { message: "カテゴリを選択してください" }),
 });
 
 export type Schema = z.infer<typeof transactionSchema>;

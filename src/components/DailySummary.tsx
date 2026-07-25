@@ -14,14 +14,14 @@ const DailySummary = ({ dailyTransactions, columns }: DailySummaryProps) => {
   return (
     <Box>
       <Grid container spacing={2}>
-        {/* 収入 */}
+        {/* 完了 */}
         <Grid item xs={isThreeColumnsLayout ? 4 : 6} display={"flex"}>
           <Card
             sx={{ bgcolor: (theme) => theme.palette.grey[100], flexGrow: 1 }}
           >
             <CardContent>
               <Typography variant="body2" noWrap textAlign="center">
-                収入
+                完了
               </Typography>
               <Typography
                 color="incomeColor.main"
@@ -35,14 +35,14 @@ const DailySummary = ({ dailyTransactions, columns }: DailySummaryProps) => {
             </CardContent>
           </Card>
         </Grid>
-        {/* 支出 */}
+        {/* ノルマ */}
         <Grid item xs={isThreeColumnsLayout ? 4 : 6} display={"flex"}>
           <Card
             sx={{ bgcolor: (theme) => theme.palette.grey[100], flexGrow: 1 }}
           >
             <CardContent>
               <Typography variant="body2" noWrap textAlign="center">
-                支出
+                ノルマ
               </Typography>
               <Typography
                 color="expenseColor.main"
@@ -55,14 +55,14 @@ const DailySummary = ({ dailyTransactions, columns }: DailySummaryProps) => {
             </CardContent>
           </Card>
         </Grid>
-        {/* 残高 */}
+        {/* 残 */}
         <Grid item xs={isThreeColumnsLayout ? 4 : 12} display={"flex"}>
           <Card
             sx={{ bgcolor: (theme) => theme.palette.grey[100], flexGrow: 1 }}
           >
             <CardContent>
               <Typography variant="body2" noWrap textAlign="center">
-                残高
+                残
               </Typography>
               <Typography
                 color="balanceColor.main"

@@ -1,6 +1,6 @@
 import { Transaction, Balance } from "../types";
 
-//収入、支出、残高、の合計金額を求める関数
+//完了、ノルマ、残、の合計金額を求める関数
 export function financeCalculations(transactions: Transaction[]): Balance {
   return transactions.reduce(
     (acc, transaction) => {
@@ -17,7 +17,7 @@ export function financeCalculations(transactions: Transaction[]): Balance {
   );
 }
 
-//日付ごとの収支を計算する関数💰
+//日付ごとの収支を計算する関数
 export function calculateDailyBalances(
   transactions: Transaction[]
 ): Record<string, Balance> {
